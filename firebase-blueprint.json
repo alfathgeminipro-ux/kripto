@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "UserWallet": {
+      "title": "UserWallet",
+      "description": "Primary Monex user profile, Rupiah wallet balance, monthly budget, and dummy virtual VISA card details.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the wallet owner." },
+        "displayName": { "type": "string", "description": "Display name shown on Home and Settings." },
+        "username": { "type": "string", "description": "Handle prefixed with @." },
+        "photoUrl": { "type": "string", "description": "Optional profile photo URL." },
+        "balanceIdr": { "type": "integer", "description": "Current wallet balance in IDR." },
+        "incomeDeltaIdr": { "type": "integer", "description": "Monthly positive income delta in IDR." },
+        "monthlyBudgetIdr": { "type": "integer", "description": "Monthly spending budget threshold in IDR." },
+        "planName": { "type": "string", "description": "Account plan name such as Standard." },
+        "cardLast4": { "type": "string", "description": "Last 4 digits of dummy virtual VISA card." },
+        "cardNumberMasked": { "type": "string", "description": "Full dummy virtual card number for display." },
+        "cardExpiry": { "type": "string", "description": "Dummy card expiry MM/YY." },
+        "cardCvv": { "type": "string", "description": "Dummy 3-digit CVV." },
+        "referralCode": { "type": "string", "description": "User referral code." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update." }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "username",
+        "photoUrl",
+        "balanceIdr",
+        "incomeDeltaIdr",
+        "monthlyBudgetIdr",
+        "planName",
+        "cardLast4",
+        "cardNumberMasked",
+        "cardExpiry",
+        "cardCvv",
+        "referralCode",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable ledger entry for transfers, top ups, withdrawals, exchanges, and crypto trades.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID." },
+        "title": { "type": "string", "description": "Merchant or recipient display title." },
+        "subtitle": { "type": "string", "description": "Human-readable time or transaction note." },
+        "amountIdr": { "type": "integer", "description": "Signed amount in IDR (positive incoming, negative outgoing)." },
+        "type": {
+          "type": "string",
+          "enum": ["transfer", "topup", "withdraw", "exchange", "crypto_buy", "crypto_sell", "crypto_send", "crypto_receive"],
+          "description": "Transaction type."
+        },
+        "category": { "type": "string", "description": "Spending or income category." },
+        "iconKey": { "type": "string", "description": "UI icon or avatar key." },
+        "incomingTx": { "type": "boolean", "description": "True if funds entered the main wallet." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": [
+        "userId",
+        "title",
+        "subtitle",
+        "amountIdr",
+        "type",
+        "category",
+        "iconKey",
+        "incomingTx",
+        "createdAt"
+      ]
+    },
+    "TransferContact": {
+      "title": "TransferContact",
+      "description": "Quick-transfer recipient contact saved under the user's wallet.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID." },
+        "name": { "type": "string", "description": "Recipient name." },
+        "handle": { "type": "string", "description": "Recipient handle or tag." },
+        "avatarKey": { "type": "string", "description": "Bundled avatar key or custom." },
+        "accentHex": { "type": "string", "description": "Accent color hex for initials fallback." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "name", "handle", "avatarKey", "accentHex", "createdAt"]
+    },
+    "CryptoHolding": {
+      "title": "CryptoHolding",
+      "description": "User's crypto asset holding and reference IDR market price.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID." },
+        "symbol": { "type": "string", "description": "Ticker symbol e.g. BTC, ETH." },
+        "name": { "type": "string", "description": "Asset name e.g. Bitcoin." },
+        "amountUnits": { "type": "number", "description": "Units held by the user." },
+        "priceIdr": { "type": "integer", "description": "Simulated unit price in IDR." },
+        "changePercent": { "type": "number", "description": "24h percentage change." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "symbol", "name", "amountUnits", "priceIdr", "changePercent", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserWallet" },
+      "description": "Authenticated user's primary Monex wallet and virtual card profile."
+    },
+    "/users/{userId}/transactions/{txId}": {
+      "schema": { "$ref": "#/entities/WalletTransaction" },
+      "description": "Authenticated user's wallet transaction history."
+    },
+    "/users/{userId}/contacts/{contactId}": {
+      "schema": { "$ref": "#/entities/TransferContact" },
+      "description": "Authenticated user's quick-send recipient contacts."
+    },
+    "/users/{userId}/cryptoHoldings/{symbol}": {
+      "schema": { "$ref": "#/entities/CryptoHolding" },
+      "description": "Authenticated user's crypto asset holdings."
+    }
+  }
+}

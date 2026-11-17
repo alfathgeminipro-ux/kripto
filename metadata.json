@@ -1,0 +1,6 @@
+{
+  "name": "Monex",
+  "description": "Aplikasi dompet digital dan pengelolaan keuangan pribadi dengan gaya dark glassmorphism, kartu VISA virtual, analitik, kripto, dan sinkronisasi Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

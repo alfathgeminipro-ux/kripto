@@ -1,0 +1,193 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUserWallet(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.username is string && data.username.size() >= 2 && data.username.size() <= 40 &&
+             data.photoUrl is string && data.photoUrl.size() <= 500 &&
+             data.balanceIdr is int && data.balanceIdr >= 0 && data.balanceIdr <= 1000000000000 &&
+             data.incomeDeltaIdr is int && data.incomeDeltaIdr >= 0 && data.incomeDeltaIdr <= 1000000000000 &&
+             data.monthlyBudgetIdr is int && data.monthlyBudgetIdr >= 100000 && data.monthlyBudgetIdr <= 1000000000000 &&
+             data.planName is string && data.planName.size() >= 1 && data.planName.size() <= 30 &&
+             data.cardLast4 is string && data.cardLast4.size() == 4 &&
+             data.cardNumberMasked is string && data.cardNumberMasked.size() >= 10 && data.cardNumberMasked.size() <= 30 &&
+             data.cardExpiry is string && data.cardExpiry.size() >= 4 && data.cardExpiry.size() <= 10 &&
+             data.cardCvv is string && data.cardCvv.size() >= 3 && data.cardCvv.size() <= 4 &&
+             data.referralCode is string && data.referralCode.size() >= 4 && data.referralCode.size() <= 24;
+    }
+
+    function isValidWalletTransaction(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
+             data.subtitle is string && data.subtitle.size() <= 80 &&
+             data.amountIdr is int && data.amountIdr != 0 &&
+             data.amountIdr >= -1000000000000 && data.amountIdr <= 1000000000000 &&
+             data.type in ['transfer', 'topup', 'withdraw', 'exchange', 'crypto_buy', 'crypto_sell', 'crypto_send', 'crypto_receive'] &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 40 &&
+             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 30 &&
+             data.incomingTx is bool;
+    }
+
+    function isValidTransferContact(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.handle is string && data.handle.size() >= 1 && data.handle.size() <= 40 &&
+             data.avatarKey is string && data.avatarKey.size() >= 1 && data.avatarKey.size() <= 30 &&
+             data.accentHex is string && data.accentHex.size() >= 4 && data.accentHex.size() <= 10;
+    }
+
+    function isValidCryptoHolding(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.symbol is string && data.symbol.size() >= 2 && data.symbol.size() <= 10 &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 40 &&
+             data.amountUnits is number && data.amountUnits >= 0.0 && data.amountUnits <= 1000000000.0 &&
+             data.priceIdr is int && data.priceIdr > 0 && data.priceIdr <= 100000000000 &&
+             data.changePercent is number && data.changePercent >= -100.0 && data.changePercent <= 10000.0;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'username', 'photoUrl',
+                         'balanceIdr', 'incomeDeltaIdr', 'monthlyBudgetIdr',
+                         'planName', 'cardLast4', 'cardNumberMasked',
+                         'cardExpiry', 'cardCvv', 'referralCode',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'username', 'photoUrl',
+                         'balanceIdr', 'incomeDeltaIdr', 'monthlyBudgetIdr',
+                         'planName', 'cardLast4', 'cardNumberMasked',
+                         'cardExpiry', 'cardCvv', 'referralCode',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       isValidUserWallet(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserWallet(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'username', 'photoUrl',
+                         'balanceIdr', 'incomeDeltaIdr', 'monthlyBudgetIdr',
+                         'planName', 'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /transactions/{txId} {
+        allow get: if isOwner(userId) && isValidId(txId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(txId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'subtitle', 'amountIdr',
+                           'type', 'category', 'iconKey', 'incomingTx', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'subtitle', 'amountIdr',
+                           'type', 'category', 'iconKey', 'incomingTx', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidWalletTransaction(incoming());
+
+        allow update, delete: if false;
+      }
+
+      match /contacts/{contactId} {
+        allow get: if isOwner(userId) && isValidId(contactId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(contactId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'handle', 'avatarKey', 'accentHex', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'handle', 'avatarKey', 'accentHex', 'createdAt'
+                         ]) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidTransferContact(incoming());
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(contactId);
+      }
+
+      match /cryptoHoldings/{symbol} {
+        allow get: if isOwner(userId) && isValidId(symbol);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(symbol) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll([
+                           'userId', 'symbol', 'name', 'amountUnits',
+                           'priceIdr', 'changePercent', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'symbol', 'name', 'amountUnits',
+                           'priceIdr', 'changePercent', 'updatedAt'
+                         ]) &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         isValidCryptoHolding(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(symbol) &&
+                         isValidCryptoHolding(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().symbol == existing().symbol &&
+                         incoming().updatedAt is timestamp &&
+                         incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'amountUnits', 'priceIdr', 'changePercent', 'updatedAt'
+                         ]);
+
+        allow delete: if false;
+      }
+    }
+  }
+}
